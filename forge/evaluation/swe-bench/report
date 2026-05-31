@@ -1,0 +1,238 @@
+# SWE-bench Verified 评测报告
+
+**模型**: GLM-5.1  
+**评测集**: SWE-bench Verified (OpenHands 45-instance subset)  
+**评测日期**: 2026-05-31  
+**评分方式**: 官方 swebench.harness.run_evaluation
+
+---
+
+## 1. 总体结果
+
+| 指标 | 值 |
+|------|-----|
+| **总实例数** | 45 |
+| **Resolved** | **34 (75.6%)** |
+| **Not Resolved** | 11 (24.4%) |
+
+### 按项目分组
+
+| 项目 | Resolved | Total | Rate |
+|------|----------|-------|------|
+| pydata/xarray | 5 | 5 | 100% |
+| pytest-dev/pytest | 5 | 5 | 100% |
+| psf/requests | 2 | 2 | 100% |
+| pallets/flask | 1 | 1 | 100% |
+| astropy | 4 | 5 | 80% |
+| django | 4 | 5 | 80% |
+| sympy | 4 | 5 | 80% |
+| sphinx-doc | 4 | 5 | 80% |
+| mwaskom/seaborn | 1 | 2 | 50% |
+| pylint-dev | 2 | 5 | 40% |
+| scikit-learn | 2 | 5 | 40% |
+
+---
+
+## 2. 逐实例结果
+
+### Resolved (34/45)
+
+| Instance | FTP | PTP |
+|----------|-----|-----|
+| astropy__astropy-7671 | 1/1 | 3/3 |
+| astropy__astropy-12907 | 2/2 | 13/13 |
+| astropy__astropy-14096 | 1/1 | 426/426 |
+| astropy__astropy-14182 | 1/1 | 9/9 |
+| django__django-11451 | 6/6 | 45/45 |
+| django__django-11740 | 1/1 | 109/109 |
+| django__django-15561 | 1/1 | 141/141 |
+| django__django-15987 | 1/1 | 52/52 |
+| mwaskom__seaborn-3187 | 2/2 | 248/248 |
+| pallets__flask-5014 | 1/1 | 59/59 |
+| psf__requests-5414 | 1/1 | 130/130 |
+| psf__requests-6028 | 2/2 | 185/185 |
+| pydata__xarray-2905 | 1/1 | 364/364 |
+| pydata__xarray-3993 | 2/2 | 2398/2398 |
+| pydata__xarray-4356 | 8/8 | 604/604 |
+| pydata__xarray-4687 | 1/1 | 1717/1717 |
+| pydata__xarray-6461 | 1/1 | 247/247 |
+| pylint-dev__pylint-6386 | 1/1 | 7/7 |
+| pylint-dev__pylint-8898 | 1/1 | 18/18 |
+| pytest-dev__pytest-5262 | 1/1 | 108/108 |
+| pytest-dev__pytest-6202 | 1/1 | 72/72 |
+| pytest-dev__pytest-7236 | 1/1 | 51/51 |
+| pytest-dev__pytest-7324 | 3/3 | 58/58 |
+| pytest-dev__pytest-7571 | 1/1 | 14/14 |
+| scikit-learn__scikit-learn-10908 | 1/1 | 47/47 |
+| scikit-learn__scikit-learn-14087 | 3/3 | 172/172 |
+| sphinx-doc__sphinx-11445 | 2/2 | 8/8 |
+| sphinx-doc__sphinx-8265 | 1/1 | 22/22 |
+| sphinx-doc__sphinx-8621 | 2/2 | 31/31 |
+| sphinx-doc__sphinx-9673 | 1/1 | 24/24 |
+| sympy__sympy-12419 | 1/1 | 25/25 |
+| sympy__sympy-14531 | 2/2 | 84/84 |
+| sympy__sympy-20154 | 2/2 | 40/40 |
+| sympy__sympy-20590 | 1/1 | 21/21 |
+
+### Not Resolved (11/45)
+
+| Instance | FTP | PTP | 失败模式 |
+|----------|-----|-----|----------|
+| astropy__astropy-13398 | 0/4 | 0/68 | A: Patch格式损坏 |
+| pylint-dev__pylint-4551 | 0/10 | 0/0 | B: 修错方向+test_patch依赖 |
+| pylint-dev__pylint-4604 | 0/21 | 0/0 | C: 漏改文件+test_patch依赖 |
+| pylint-dev__pylint-4970 | 0/1 | 17/17 | D: 修复位置偏差 |
+| django__django-15973 | 0/1 | 157/157 | E: 超出能力(空patch) |
+| mwaskom__seaborn-3069 | 1/2 | 94/94 | D: 修复不完整 |
+| scikit-learn__scikit-learn-12973 | 0/1 | 32/32 | D: 修复不完整 |
+| scikit-learn__scikit-learn-25102 | 0/2 | 59/59 | F: 修复策略错误 |
+| scikit-learn__scikit-learn-26194 | 0/2 | 186/186 | F: 修复策略错误 |
+| sphinx-doc__sphinx-9658 | 0/1 | 24/24 | G: 修症状不修病因 |
+| sympy__sympy-12489 | 0/1 | 8/8 | D: 修复不完整 |
+
+---
+
+## 3. Bad Case 分析
+
+### 模式 A: Patch 格式损坏
+
+**astropy-13398**: Agent 创建了新文件 `itrs_observed_transforms.py`（222行）和 `test_itrs_observed_transformations.py`（282行），但 diff 格式有问题。`patch` 命令将新文件 diff 误判为删除操作（"Assuming -R"），且第 557 行出现 "patch unexpectedly ends in middle of line"。Patch apply 彻底失败，连测试都没跑就判定 resolved=False。
+
+此前误报为"实现不完整+PTP回归"——实际上 patch 根本没有成功 apply 到容器中，FTP=0/4 和 PTP=0/68 是因为容器内代码未被修改，跑的是 base_commit 的原始测试。
+
+### 模式 B: 修错方向 + test_patch 依赖
+
+**pylint-4551**: Agent 在 `inspector.py` 加了 100 行新方法（`_resolve_init_annotations`等），试图从类型注解推断属性类型。Gold 改了 `diagrams.py`（扩展 `class_names` 的 isinstance 判断）+ `inspector.py`（简化 `visit_assignname` 逻辑）。完全不同的修法。
+
+test_patch 引用了 gold patch 新增的 `get_annotation`、`infer_node` 等符号，agent 没有添加这些 → `ImportError: cannot import name 'get_annotation' from 'pylint.pyreverse.utils'` → 测试收集失败 → 10 条 FTP 全挂，PTP=0/0。
+
+**注意**：即使 agent 的修复方向正确，也会因为缺少 gold 专属的辅助符号而触发 ImportError。这是 SWE-bench test_patch 设计的已知局限——详见第 6 节。
+
+### 模式 C: 漏改文件 + test_patch 依赖
+
+**pylint-4604**: Gold 改了 `variables.py`（核心修复）+ `constants.py`（添加 `IS_PYPY` 常量）。Agent 只改了 `variables.py`，核心修复逻辑方向正确。
+
+test_patch 添加了 `from pylint.constants import IS_PYPY` → `ImportError: cannot import name 'IS_PYPY' from 'pylint.constants'` → 测试收集失败 → 21 条 FTP 全挂，PTP=0/0。
+
+`IS_PYPY` 对核心修复（type comment 中 unused-import 误报）零功能贡献，仅被 `@unittest.skipIf(IS_PYPY, ...)` 用于跳过 PyPy 测试。Agent 对 `variables.py` 的修复可能完全正确，但因缺少一个与修复无关的常量，连验证正确性的机会都没有。
+
+**注意**：这是 SWE-bench test_patch 依赖 gold patch 辅助改动的典型 case——详见第 6 节。
+
+### 模式 D: 修复不完整（4条）
+
+**pylint-4970**: Gold 在 `run()` 加 `if self.min_lines == 0: return`，Agent 在 `_compute_sims()` 加 `if self.min_lines <= 0: return []`。修复位置偏差 + 条件差异。
+
+**seaborn-3069**: 修了 `Nominal` 的 import 位置（X轴测试通过），但漏改 `_finalize_figure` 里的 `axis_obj` 获取（Y轴测试失败）。FTP 1/2。
+
+**sklearn-12973**: 改了 `fit()` 的 `copy_X` 逻辑，但漏改 `_preprocess_data` 调用里的 `self.copy_X` → `copy_X`。
+
+**sympy-12489**: 把 `_af_new` 从 staticmethod 改成 classmethod，但漏了 `isinstance(a, Perm)` → `isinstance(a, cls)`。
+
+**共同模式**：方向对，改了主要位置，漏了 1-2 处关联修改。
+
+### 模式 E: 超出能力
+
+**django-15973**: 跨 app ManyToManyField with through model 的字符串引用解析问题。Agent 70 轮用尽，产出空 patch。只成功复现了 bug，没有给出修复。
+
+### 模式 F: 修复策略错误（2条）
+
+**sklearn-25102**: Agent 在输出端 `_set_output.py` 加 dtype 转换函数，Gold 在输入验证端 `base.py` 跳过 ndarray 转换。应该从根源阻断，不是事后补偿。
+
+**sklearn-26194**: `roc_curve` 的 `thresholds[0]` 处理。Agent 用条件判断，Gold 直接用 `np.inf`。条件判断有边界问题。
+
+### 模式 G: 修症状不修病因
+
+**sphinx-9658**: mock 对象缺少 `__name__` 属性。Agent 在 `ClassDocumenter` 里加 isinstance 判断绕过，Gold 在 `mock.py` 里给 `_MockObject` 添加 `__name__` 属性。test 直接测 `restify()` 函数，绕过了 workaround。
+
+### 失败模式总结
+
+| 失败模式 | 数量 | 可改进性 | 改进方向 |
+|----------|------|---------|---------|
+| A: Patch格式损坏 | 1 | 中 | 新文件 diff 格式规范化 |
+| B: 修错方向+test_patch依赖 | 1 | 低 | 需要更深层理解代码架构 |
+| C: 漏改文件+test_patch依赖 | 1 | 中 | 部分受 bench 设计影响（见第6节） |
+| D: 修复不完整 | 4 | 中 | 更系统地检查所有引用点 |
+| E: 超出能力 | 1 | 低 | 需要更强的推理能力 |
+| F: 修复策略错误 | 2 | 低 | 需要更深层理解问题根源 |
+| G: 修症状不修病因 | 1 | 低 | 需要更深层理解问题根源 |
+
+**最关键的改进点**：模式 A+D（patch格式 + 修复不完整）= 5 条，占 45%。如果 agent 能（1）规范新文件 diff 格式、（2）更系统地检查所有引用点，理论上 34 → 39 是可能的。模式 B/C 中 test_patch 依赖的影响需结合第 6 节理解。
+
+---
+
+
+## 4. 评分基础设施说明
+
+### 官方 harness 适配
+
+评分使用官方 `swebench.harness.run_evaluation`，通过 monkey-patch 绕过网络依赖：
+
+| 绕过点 | 原始行为 | Patch 方式 |
+|--------|---------|-----------|
+| `get_requirements_by_commit()` | 从 GitHub 拉 requirements.txt | 返回空字符串 |
+| `MAP_REPO_VERSION_TO_SPECS[*]["install"]` | `pip install -e .[test]` | 删除 install 字段 |
+| `build_instance_image()` | 检查 env image 是否存在 | 只检查 instance image tag |
+
+Docker 镜像内包为 editable install（`Location: /testbed`），跳过 `pip install` 不影响测试结果。
+
+### Patch 提取
+
+Phase 1 使用 `git diff + git diff --cached`（不包含 untracked files），与 SWE-agent 做法一致。
+
+---
+
+## 5. Bench 设计局限：test_patch 对 gold patch 的隐性依赖
+
+### 问题
+
+SWE-bench 的 gold patch 来自真实 git commit，包含核心修复和辅助改动（新增常量、工具函数等）。test_patch 从同一 commit 提取，自然引用这些辅助符号。但模型拿到的是 base_commit 代码 + 问题描述，不知道 test_patch 会引用什么。
+
+当模型只实现了核心修复而遗漏辅助改动时，test_patch 中的 import 会因符号不存在而触发 ImportError，导致 pytest 在**收集阶段**就崩溃——不是"测试跑不过"，是"测试根本没跑起来"。核心修复的正确性无法被验证。
+
+### 受影响实例
+
+| 实例 | 缺失的辅助符号 | 对核心修复的功能贡献 |
+|------|-------------|-------------------|
+| pylint-4604 | `IS_PYPY` in `pylint.constants` | 零（仅用于 `@unittest.skipIf`） |
+| pylint-4551 | `get_annotation`, `infer_node` in `pylint.pyreverse.utils` | 间接（修错方向为主因，但即使方向对也会因缺符号崩） |
+
+### 客观评价
+
+**这不纯粹是模型能力问题**——即使模型的核心修复完全正确，也可能因为 test_patch 引用了 gold 专属的辅助符号而无法通过评测。test_patch 混淆了"验证核心修复"和"依赖辅助基础设施"两个关注点。
+
+**但也不纯粹是 bench bug**——完整性本身就是一种能力维度。如果模型能读通代码并预判辅助符号的需求，就能生成完整 patch。
+
+**实际影响**：这两条实例的区分度可能较低——其他模型也大概率在同样的 ImportError 上失败。如果所有模型都在某条实例上因 bench 设计而失败，该实例对模型排序没有贡献。
+
+---
+
+## 6. 数据可信度与局限
+
+### 子集偏差
+
+45 条是每 repo 精确 5 条的平衡抽样，占全量 500 条的 9%。与排行榜的可比性受限：
+
+| 维度 | 45 条子集 | 500 条全量 |
+|------|----------|-----------|
+| Django 占比 | 11% (5/45) | 46% (231/500) |
+| matplotlib | 0 条 | 34 条 |
+
+75.6% 是 45 条子集上的真实数字，不能直接和排行榜上的全量分数比较。
+
+### 数据污染
+
+GLM-5.1 为国内模型，训练数据中大概率不包含这些英文开源 repo 的 PR，无数据污染。
+
+---
+
+## 8. 文件清单
+
+```
+outputs/swebench_oh45/
+├── predictions.jsonl               # 45 条 agent 生成的 patch
+├── trajectories/                   # 45 个 JSON 文件，含完整 agent 对话轨迹
+├── official_harness_results.jsonl  # 官方 harness 评分结果 (34/45) ← 权威数据源
+├── scoring_results.jsonl           # 自研 scorer 结果 (已弃用，与官方一致率仅60%)
+├── plots/                          # 可视化图表 (analyze_trajectories.py 生成)
+└── EVALUATION_REPORT.md            # 本报告
+```

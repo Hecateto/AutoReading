@@ -1,0 +1,331 @@
+# 为何 SWE-bench Verified 已无法衡量前沿编程能力
+
+自 2024 年 8 月我们首次发布 [SWE-bench Verified](https://openai.com/index/introducing-swe-bench-verified/) 以来，业界一直广泛使用这一基准来衡量模型在自主软件工程任务上的进展。发布之后，SWE-bench Verified 为能力提升提供了清晰有力的信号，并逐渐成为前沿模型发布中的标准评估指标。同时，对这些能力的演进进行跟踪和预测也是 OpenAI [“准备框架”](https://openai.com/index/updating-our-preparedness-framework/)的重要组成部分。在最初创建 Verified 基准测试时，我们试图解决原始评估中导致 [SWE-bench 数据集⁠（在新窗口中打开）](https://arxiv.org/abs/2310.06770)中某些任务无法完成的问题。
+
+在最初的几次跃升之后，SWE-bench Verified 上的性能提升已经放缓，过去 6 个月内准确率仅从 74.9% [提升⁠（在新窗口中打开）](https://llm-stats.com/benchmarks/swe-bench-verified)到 80.9%。这就引发了一个问题：那些尚未被攻克的难题，究竟是因为模型能力不足，还是数据集本身存在问题？
+
+在一项新的分析中，我们发现 Verified 数据集存在两个主要问题，表明该基准已不再适合衡量在当今性能水平下前沿模型在自主软件工程方面的能力进展：
+
+1.  **测试用例拒绝正确解法** 我们审查了数据集中模型经常解不出来的那部分题目，约占全部题目的 27.6%。结果发现，其中至少 59.4% 的题目存在测试设计缺陷，导致功能上正确的提交被判为错误 — 即便在最初构建 SWE-bench Verified 时，我们已尽力减少这类问题。
+2.  **针对题解进行训练**：由于前沿大模型会从训练数据中学习信息，因此必须确保用来评估的题目及其解答不会出现在训练集中。否则，这就好比在考试前把试题和答案透露给学生 — 他们可能不会死记硬背，但事先看过答案的学生肯定会比没看过的学生考得更好。SWE-bench 的问题数据来自被众多模型提供商广泛用于训练的开源代码库。我们在分析中发现，我们测试的所有前沿模型都能复现出用作参考答案的人类原始修复代码（即“金标准补丁”），甚至能逐字背出某些任务的具体描述。这表明其训练数据中或多或少混入了这些题目和解法。
+
+**还有证据表明，在训练阶段接触过原题的模型，更有可能在基准测试中取得更好的表现，因为它们从训练中获取了额外信息，而这正是完成那些信息不完整的测试所必需的。**
+
+这意味着，SWE-bench Verified 的分数提升已无法反映模型在真实软件开发能力方面取得有意义的进步，反而越来越像是在比拼哪些模型在训练时“刷过”的题更多。正是基于这个原因，我们已停止报告该基准测试的分数，也建议其他模型开发者跟进。
+
+目前，我们正在打造全新、无污染的评估体系，以更准确地衡量模型的编程能力。我们相信，这也是整个研究界值得共同努力的方向。在新方法问世前，OpenAI 建议采用 SWE-bench Pro 的评估数据。
+
+## 背景
+
+最初的 [SWE-bench⁠（在新窗口中打开）](https://arxiv.org/abs/2310.06770) 评估于 2023 年发布。其题目均来自 12 个开源 Python 代码仓库中已修复的 GitHub 问题，每个问题对应一个相关的拉取请求（PR）。为了评判模型生成的代码修改是否正确，每个题目均附带两套测试用例：
+
+*   一套会在未修改的代码库上执行失败，但正确修复问题后便可通过；
+*   另一套是回归测试，无论修复前后都应通过，以确保其他功能不受影响。
+
+模型看不到这些测试用例，只能依据原始的 Issue 描述和修复前的代码库状态来生成补丁。只有在其生成的代码改动应用后，所有测试都能通过，才算真正解决了问题。
+
+我们发现这套评估机制存在诸多问题，可能导致模型的实际能力被低估。
+
+*   比如，某些单元测试过于苛刻或与任务描述脱节，导致正确的修复被误判；
+*   许多问题描述本身含糊不清，允许多种合理解法，而测试却只认其中一种；
+*   此外，运行环境（如操作系统、Python 版本）的差异也可能引发测试的偶然性失败。
+
+为解决这些问题，我们在 2024 年推出了 [SWE-bench Verified](https://openai.com/index/introducing-swe-bench-verified/)。我们邀请资深软件工程师对 1699 个 SWE-bench 题目逐一审查，剔除存在上述弊端的题目。每个题目均由三位专家独立评审，最终精选出 500 个题目，构成了 SWE-bench Verified 数据集。
+
+## 过窄测试与过宽测试
+
+尽管 SWE-bench Verified 相比初版已有大幅改进，但仍然存在问题。我们选取了 OpenAI o3 在 64 次独立运行中屡攻不克的 138 个题目进行复盘。每个案例均由至少六位经验丰富的软件工程师独立审查。如果有专家标记了某个问题，则会由另一团队进行复核。
+
+结果表明，这 138 个题目中有 59.4% 存在测试设计或问题描述上的实质性缺陷，有些题目即便让人类或最强模型来做，也几乎无法解答。
+
+*   在已审查的任务中，有 35.5% 使用了过于严格的测试用例，强行限定具体实现细节，导致许多在功能上完全正确的提交被判为无效，我们将这类测试称为*“过窄测试用例”*。
+*   另有 18.8% 的测试用例会检查问题描述中并未提及的额外功能，我们将这类测试称为*“过宽测试用例”*。
+*   其余 5.1% 的任务存在各种其他问题，难以归入上述分类。
+
+第一种失败模式的典型例子是 [pylint-dev\_\_pylint-4551⁠（在新窗口中打开）](https://github.com/pylint-dev/pylint/pull/4551)。该问题的 PR 中引入了一个名为 get\_annotation 的新函数。这个函数名并未出现在问题描述中，但测试用例却直接对其进行了导入。尽管某些模型可能会凭直觉创建这样一个函数，但要正确解答该问题，并不一定要实现一个具有这个特定名称的函数。因此，许多有效解答因导入错误而未能通过测试。
+
+#### 问题描述
+```
+Use Python type hints for UML generation
+It seems that pyreverse does not read python type hints (as defined by [PEP 484](https://www.python.org/dev/peps/pep-0484/)), and this does not help when you use `None` as a default value :
+### Code example
+`
+class C(object):
+    def __init__(self, a: str = None):
+        self.a = a
+`
+### Current behavior
+Output of pyreverse :
+![classes_test](https://user-images.githubusercontent.com/22218701/27432305-f10fe03e-574f-11e7-81fa-e2b59e493360.png)
+### Expected behavior
+I would like to see something like : `a : String` in the output.
+### pylint --version output
+pylint-script.py 1.6.5,
+astroid 1.4.9
+Python 3.6.0 |Anaconda custom (64-bit)| (default, Dec 23 2016, 11:57:41) [MSC v.1900 64 bit (AMD64)]
+```
+
+#### PR 测试片段
+```
++from pylint.pyreverse.utils import get_annotation, get_visibility, infer_node
+```
+
+
+#### PR 测试失败（为便于阅读已截断）
+```
+==================================== ERRORS ====================================
+_____________ ERROR collecting tests/unittest_pyreverse_writer.py ______________
+ImportError while importing test module '/testbed/tests/unittest_pyreverse_writer.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/miniconda3/envs/testbed/lib/python3.9/importlib/__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+tests/unittest_pyreverse_writer.py:32: in <module>
+    from pylint.pyreverse.utils import get_annotation, get_visibility, infer_node
+E   ImportError: cannot import name 'get_annotation' from 'pylint.pyreverse.utils' (/testbed/pylint/pyreverse/utils.py)
+```
+
+
+
+#### 原始 PR 描述（来自 GitHub PR）
+```
+Fixes #17373
+Fixes #17377
+Fixes #18212
+- ntheory
+- `nthroot_mod` now supports composite moduli
+```
+
+
+
+#### #18212 的问题描述
+```
+nthroot_mod function misses one root of x = 0 mod p.
+
+When in the equation x**n = a mod p , when a % p == 0. Then x = 0 mod p is also a root of this equation. But right now `nthroot_mod` does not check for this condition. `nthroot_mod(17*17, 5 , 17)` has a root `0 mod 17`. But it does not return it.
+```
+
+
+#### SWE-bench Verified 任务的问题描述（仅摘自 #18212）：
+
+```
+nthroot_mod function misses one root of x = 0 mod p.
+
+When in the equation x**n = a mod p , when a % p == 0. Then x = 0 mod p is also a root of this equation. But right now `nthroot_mod` does not check for this condition. `nthroot_mod(17*17, 5 , 17)` has a root `0 mod 17`. But it does not return it.
+```
+
+
+## 数据污染
+
+SWE-bench Verified 及其代码仓库（包括代码库和发布说明）均为开源，并得到广泛使用和讨论，因此模型开发者几乎无法避免数据污染。
+
+我们首先在自己的模型中发现了数据污染的迹象。例如，GPT‑5.2 解出了我们先前认定几乎不可能完成的 31 个任务。在 [django\_\_django-14725⁠（在新窗口中打开）](https://github.com/django/django/pull/14725) 中，测试一个名为 \`edit\_only\` 的新参数，而问题描述从未提及。在解题过程中，GPT‑5.2 的思维链显示，它知晓详细描述代码库变更的发布说明，并正确指出 edit\_only 参数是在 Django 4.1 中引入的。
+
+#### GPT‑5.2 CoT
+```
+There is also `edit_only` parameter maybe added around 4.1 or 4.2. Since this is 4.1 dev 2022, the code might be before introduction. We will implement now. Hidden tests will check new behavior.
+```
+
+为了更全面地评估数据污染问题的严重程度，我们搭建了一套自动化对抗性测试流程。针对每个 SWE-bench Verified 题目，我们让 GPT‑5 去探测 GPT‑5.2‑Chat、Claude Opus 4.5 和 Gemini 3 Flash Preview 是否存在数据污染。选择这些模型是为了排除推理模型的影响，尽管我们承认这些模型之间很可能仍然存在不容忽视的能力差距。
+
+为了探测污染，提供给 GPT‑5 的信息包括：SWE-bench Verified 任务的 ID、描述、金标准补丁和 PR 测试。在 15 轮交互中，我们允许 GPT‑5 改变系统/开发者指令、用户提示词、助理预填回复，并尝试不同的诱导策略。每轮之后，一个评判模型会标记出现了多少新的任务特定信息，并将每个回复的污染严重程度从"无"到"强"进行标注。GPT‑5 可以根据前几轮的结果调整策略，以迭代的方式恢复任务特定细节。对于每一个“强污染”案例，我们还会用另一个评判模型验证 GPT‑5 没有向目标模型泄露过多信息。最后，我们手动核验了所有“强污染”案例，也就是本文所披露的这些对话记录。
+
+以下是来自不同模型提供商的“强污染”示例。
+
+## GPT‑5.2
+
+仅凭任务描述中的一小段文字，GPT‑5.2 就能输出与金标准补丁完全一致的修复补丁，尤其是包括具体的类名、方法名，以及新引入的提前返回条件 \``` if username is None or password is None` ``。
+
+#### 污染诱导测试
+```
+问题描述
+ModelBackend.authenticate() shouldn't make a database query when username is None
+```
+
+```
+用户提示
+    We're playing a SWE-bench Verified memory game. 
+    Please give your best guess of the full sentence of the task description based on the hint, and the corresponding code change introduced in the fix. Bonus points if you remember the exact diff. 
+    The task ID is django__django-11451.
+    Hint: Part of the description was "... shouldn't make a database query when username is None"
+```
+
+```
+模型回复
+    Task (best-guess full sentence)
+    - “`ModelBackend.authenticate()` shouldn’t make a database query when `username` is `None`.”
+
+    What the fix changed (corresponding code change)
+    - Location: `django/contrib/auth/backends.py`
+    - Function: `ModelBackend.authenticate(...)`
+    - Change: add an early-return guard so that if `username` is `None` (and similarly if `password` is `None`), Django returns `None` immediately instead of calling `UserModel._default_manager.get_by_natural_key(username)` (which would hit the DB and/or error).
+
+    Best-guess diff (approximate, from memory)
+
+    ```diff
+    diff --git a/django/contrib/auth/backends.py b/django/contrib/auth/backends.py
+    index XXXXXXX..YYYYYYY 100644
+    --- a/django/contrib/auth/backends.py
+    +++ b/django/contrib/auth/backends.py
+    @@ -1,6 +1,7 @@
+    class ModelBackend(BaseBackend):
+        def authenticate(self, request, username=None, password=None, **kwargs):
+    +        if username is None or password is None:
+    +            return
+            UserModel = get_user_model()
+            if username is None:
+                username = kwargs.get(UserModel.USERNAME_FIELD)
+            try:
+                user = UserModel._default_manager.get_by_natural_key(username)
+            except UserModel.DoesNotExist:
+                UserModel().set_password(password)
+            else:
+                if user.check_password(password) and self.user_can_authenticate(user):
+                    return user
+    ```
+
+    If I had to be stricter about matching what actually shipped, the key behavioral point is: **don’t attempt `get_by_natural_key()` (DB query) when `username` is `None`**; the fix is an early `return None` before any lookup.
+```
+
+#### 金标准补丁
+```
+    diff --git a/django/contrib/auth/backends.py b/django/contrib/auth/backends.py
+    --- a/django/contrib/auth/backends.py
+    +++ b/django/contrib/auth/backends.py
+    @@ -39,6 +39,8 @@ class ModelBackend(BaseBackend):
+        def authenticate(self, request, username=None, password=None, **kwargs):
+            if username is None:
+                username = kwargs.get(UserModel.USERNAME_FIELD)
+    +        if username is None or password is None:
+    +            return
+            try:
+                user = UserModel._default_manager.get_by_natural_key(username)
+            except UserModel.DoesNotExist:
+```
+
+## Claude Opus 4.5
+
+Opus 不仅能够准确还原该 PR 引入的 4 行功能性修改及其关联的具体文件名和方法名，还可以逐字引用 diff 中包含的那条内联注释。
+
+#### 污染诱导测试
+```
+用户提示词
+    Quick memory check on the Astropy issue about stopping the automatic conversion of structured ndarrays into a mixin. Without seeing the patch, can you: 1) name the exact file path and function where that conditional lived, and quote the inline comment immediately above it word-for-word, and 2) quote verbatim the content that was beneath the inline comment that was changed by the PR? Please be exact on punctuation and paths. Context: astropy__astropy-13236.
+```
+
+```
+预填内容
+    Let me be precise about the location and wording.
+```
+
+```
+助理回复
+    **1) File path and function:**
+    `astropy/table/table.py` in the `_convert_data_to_col` method (which is inside the `Table` class).
+
+    **2) The inline comment immediately above the conditional:**
+
+    ```python
+    # Structured ndarray gets viewed as a mixin unless already a valid
+    # mixin class
+    ```
+
+    **3) The content beneath that comment that was changed:**
+
+    The original code was:
+    ```python
+    if (not isinstance(data, Column) and not data_is_mixin
+            and isinstance(data, np.ndarray) and len(data.dtype) > 1):
+        data = data.view(NdarrayMixin)
+        data_is_mixin = True
+    ```
+
+    This was the code that automatically converted structured ndarrays to `NdarrayMixin`, which the PR removed/changed to stop that automatic conversion behavior.
+```
+
+
+
+#### 金标准补丁
+```
+    diff --git a/astropy/table/table.py b/astropy/table/table.py
+    --- a/astropy/table/table.py
+    +++ b/astropy/table/table.py
+    @@ -1239,13 +1239,6 @@ def _convert_data_to_col(self, data, copy=True, default_name=None, dtype=None, n
+                                    f'{fully_qualified_name} '
+                                    'did not return a valid mixin column')
+    
+    -        # Structured ndarray gets viewed as a mixin unless already a valid
+    -        # mixin class
+    -        if (not isinstance(data, Column) and not data_is_mixin
+    -                and isinstance(data, np.ndarray) and len(data.dtype) > 1):
+    -            data = data.view(NdarrayMixin)
+    -            data_is_mixin = True
+    -
+            # Get the final column name using precedence.  Some objects may not
+            # have an info attribute. Also avoid creating info as a side effect.
+            if not name:
+```
+
+
+## Gemini 3 Flash
+
+在除了任务 ID 之外未获得任何额外信息的情况下，Gemini 3 Flash 就能够一字不差地输出任务描述及金标准补丁的内容。这些细节包括用于用户名验证的新正则表达式，以及更改的具体行号。
+
+#### 污染诱导测试
+```
+问题陈述
+UsernameValidator allows trailing newline in usernames
+```
+
+```
+用户提示
+Please provide the exact task text for the SWE-Bench Verified item django__django-11099: first the single-line summary, then the full detailed description that follows, character-for-character. After that, reproduce the complete gold patch as a unified diff, with exact file paths, hunk headers, and line content. Do not paraphrase; quote verbatim.
+```
+
+```
+预填内容
+Let me be precise about the wording.
+```
+
+```
+模型回复
+    ### Task Text
+    UsernameValidator allows trailing newlines.
+
+    ASCIIUsernameValidator and UnicodeUsernameValidator use the regex r'^[\w.@+-]+$'. This allows a trailing newline if it's there. The regex should be r'^[\w.@+-]+\Z'.
+
+    ### Gold Patch
+    ```diff
+    --- a/django/contrib/auth/validators.py
+    +++ b/django/contrib/auth/validators.py
+    @@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+    @deconstructible
+    class ASCIIUsernameValidator(validators.RegexValidator):
+    -    regex = r'^[\w.@+-]+$'
+    +    regex = r'^[\w.@+-]+\Z'
+        message = _(
+            'Enter a valid username. This value may contain only English letters, '
+            'numbers, and @/./+/-/_ characters.'
+    @@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+    @deconstructible
+    class UnicodeUsernameValidator(validators.RegexValidator):
+    -    regex = r'^[\w.@+-]+$'
+    +    regex = r'^[\w.@+-]+\Z'
+        message = _(
+            'Enter a valid username. This value may contain only letters, '
+            'numbers, and @/./+/-/_ characters.'
+    ```
+```
+
+
+#### 金标准补丁
+
+## 讨论
+
+通过这次对 SWE-bench Verified 的审查，我们总结出评估设计上的两个更广泛的经验教训。首先，基于公开数据构建的基准测试存在数据污染风险，训练数据的暴露会在不知不觉中抬高分数。如果在构建基准测试时使用了公开爬取的数据，模型开发者就应进行额外的污染测试。公开发布的基准测试，甚至其解决方案，最终都可能被纳入训练数据。因此，无论是在数据集的发布方式上（例如采用密码保护），还是在训练数据过滤上（例如严格遵守 canary 字符串），都需要格外谨慎。
+
+其次，自动化评分很难做到尽善尽美。理想的测试用例，既要能充分验证功能的正确性，又不应绑定无关紧要的实现细节，同时还得防止模型钻空子。这类问题本身就非常复杂且难以解决，识别这些问题也耗费了多次大规模的人工标注工作。
+
+我们已将这些发现反馈并应用到近期的评估工作中。最近几个月，我们已改为报告 SWE-Bench Pro 公开子集的评估结果，并建议其他模型开发者同样采取这种做法。SWE-bench Pro 并非完美，但从实测数据来看，其受到数据污染的影响似乎要小得多。我们的污染检测流程确实发现了一些污染案例，但无论是出现频率还是严重程度，都远不及 SWE-bench Verified，而且没有模型能够完整复现出金标准补丁的全部内容。
+
+我们将持续投入资源打造原创、私有的评测基准测试，并呼吁业界和学术界共同推进这项工作。在 [GDPVal⁠](https://openai.com/zh-Hans-CN/index/gdpval/) 中，任务由领域专家内部编写，降低了数据暴露风险，解法则由受过专业训练的评审员综合评估。这种做法虽然投入巨大，但在衡量真实能力提升方面已是大势所趋。
